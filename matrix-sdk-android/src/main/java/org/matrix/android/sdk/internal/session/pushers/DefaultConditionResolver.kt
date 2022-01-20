@@ -40,7 +40,7 @@ internal class DefaultConditionResolver @Inject constructor(
     override fun resolveEventMatchCondition(event: Event,
                                             condition: EventMatchCondition): Boolean {
         val result: Boolean
-        measureTimeMillisAndComplain("SCSCSC-decore resolving event match condition $condition for event ${event.eventId} in room ${event.roomId} | ${condition.technicalDescription()}") {
+        measureTimeMillisAndComplain("SCSCSC-decore resolving event match condition $condition for event ${event.eventId} in room ${event.roomId}") {
             result = condition.isSatisfied(event)
         }
         return result
