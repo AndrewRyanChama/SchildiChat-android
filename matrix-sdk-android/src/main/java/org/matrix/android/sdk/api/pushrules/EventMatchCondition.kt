@@ -17,6 +17,7 @@ package org.matrix.android.sdk.api.pushrules
 
 import org.matrix.android.sdk.api.session.events.model.Event
 import org.matrix.android.sdk.internal.di.MoshiProvider
+import org.matrix.android.sdk.internal.session.notification.measureTimeMillisAndComplain
 import org.matrix.android.sdk.internal.util.caseInsensitiveFind
 import org.matrix.android.sdk.internal.util.hasSpecialGlobChar
 import org.matrix.android.sdk.internal.util.simpleGlobToRegExp
@@ -46,19 +47,40 @@ class EventMatchCondition(
 
     fun isSatisfied(event: Event): Boolean {
         // TODO encrypted events?
-        val rawJson = MoshiProvider.providesMoshi().adapter(Event::class.java).toJsonValue(event) as? Map<*, *>
-                ?: return false
-        val value = extractField(rawJson, key) ?: return false
+        val rawJson: Map<*, *>?
+        measureTimeMillisAndComplain("SCSCSC-evmaco rawJson parse for event $event") {
+            rawJson = MoshiProvider.providesMoshi().adapter(Event::class.java).toJsonValue(event) as? Map<*, *>
+        }
+        rawJson ?: return false
+        val value: String?
+        measureTimeMillisAndComplain("SCSCSC-evmaco extractField $key for rawJson $rawJson") {
+            value = extractField(rawJson, key)
+        }
+        value ?: return false
 
         // Patterns with no special glob characters should be treated as having asterisks prepended
         // and appended when testing the condition.
         return try {
             if (wordsOnly) {
-                value.caseInsensitiveFind(pattern)
+                val result: Boolean
+                measureTimeMillisAndComplain("SCSCSC-evmaco caseInsensitiveFind") {
+                    result = value.caseInsensitiveFind(pattern)
+                }
+                result
             } else {
-                val modPattern = if (pattern.hasSpecialGlobChar()) pattern.simpleGlobToRegExp() else "*$pattern*".simpleGlobToRegExp()
-                val regex = Regex(modPattern, RegexOption.DOT_MATCHES_ALL)
-                regex.containsMatchIn(value)
+                val modPattern: String
+                measureTimeMillisAndComplain("SCSCSC-evmaco build modPattern from $pattern") {
+                    modPattern = if (pattern.hasSpecialGlobChar()) pattern.simpleGlobToRegExp() else "*$pattern*".simpleGlobToRegExp()
+                }
+                val regex: Regex
+                measureTimeMillisAndComplain("SCSCSC-evmaco build regex from $modPattern") {
+                    regex = Regex(modPattern, RegexOption.DOT_MATCHES_ALL)
+                }
+                val result: Boolean
+                measureTimeMillisAndComplain("SCSCSC-evmaco match regex $regex") {
+                    result = regex.containsMatchIn(value)
+                }
+                result
             }
         } catch (e: Throwable) {
             // e.g PatternSyntaxException
